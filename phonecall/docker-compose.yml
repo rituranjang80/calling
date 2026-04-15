@@ -1,0 +1,114 @@
+# =============================================================
+# Phone Call Controller - Docker Compose
+# =============================================================
+# Usage:
+#   WiFi ADB (recommended for Docker):
+#     PHONE_IP=192.168.1.100 docker compose up phone-call
+#
+#   Direct dial:
+#     PHONE_IP=192.168.1.100 DIAL_NUMBER=9960046719 docker compose up phone-call
+#
+#   USB passthrough (Linux host only):
+#     docker compose --profile usb up phone-call-usb
+# =============================================================
+
+services:
+  # -----------------------------------------------------------
+  # WiFi ADB mode (works on Windows, Mac, Linux)
+  # -----------------------------------------------------------
+  phone-call:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phone-call-controller
+    image: phone-call-controller:latest
+
+    # Interactive terminal for the call menu
+    stdin_open: true
+    tty: true
+
+    environment:
+      # REQUIRED: Set your phone's WiFi IP address
+      - PHONE_IP=${PHONE_IP:-}
+      - ADB_PORT=${ADB_PORT:-5555}
+      # Optional: auto-dial a number on startup
+      - DIAL_NUMBER=${DIAL_NUMBER:-}
+      # Audio forwarding
+      - AUDIO_FORWARD=${AUDIO_FORWARD:-true}
+      # PulseAudio for host audio passthrough
+      - PULSE_SERVER=unix:/run/pulse/native
+
+    volumes:
+      # Persist contacts and call logs
+      - phone-data:/app/data
+      # Share host ADB keys so phone trusts the container (no re-auth needed)
+      - ${USERPROFILE:-.}/.android:/root/.android:ro
+
+    # Use host network for ADB WiFi connectivity
+    network_mode: host
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "adb", "devices"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # -----------------------------------------------------------
+  # USB passthrough mode (Linux host only)
+  # -----------------------------------------------------------
+  phone-call-usb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phone-call-usb
+    image: phone-call-controller:latest
+    profiles:
+      - usb
+
+    stdin_open: true
+    tty: true
+
+    environment:
+      - DIAL_NUMBER=${DIAL_NUMBER:-}
+      - AUDIO_FORWARD=${AUDIO_FORWARD:-true}
+      - PULSE_SERVER=unix:/run/pulse/native
+
+    volumes:
+      - phone-data:/app/data
+      - ${USERPROFILE:-.}/.android:/root/.android:ro
+
+    # USB device passthrough (Linux only)
+    privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+
+    network_mode: host
+    restart: unless-stopped
+
+  # -----------------------------------------------------------
+  # ADB server as a shared service (optional)
+  # Useful when running multiple containers that need ADB
+  # -----------------------------------------------------------
+  adb-server:
+    image: sorccu/adb:latest
+    container_name: adb-server
+    profiles:
+      - adb-server
+
+    privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+
+    ports:
+      - "5037:5037"
+
+    restart: unless-stopped
+
+# -----------------------------------------------------------
+# Named volumes
+# -----------------------------------------------------------
+volumes:
+  phone-data:
+    driver: local

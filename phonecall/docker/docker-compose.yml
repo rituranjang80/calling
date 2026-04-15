@@ -1,0 +1,32 @@
+version: '3.3'
+services:
+  mysql:
+    image: mariadb:10.5
+    container_name: freepbx-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=freepbxdbpass
+    networks:
+      - freepbx-net
+    restart: unless-stopped
+
+  freepbx:
+    image: tiredofit/freepbx:latest
+    container_name: freepbx
+    depends_on:
+      - mysql
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5060:5060/udp"
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=root
+      - DB_PASS=freepbxdbpass
+      - DB_NAME=asterisk
+    networks:
+      - freepbx-net
+    restart: unless-stopped
+
+networks:
+  freepbx-net:
+    driver: bridge

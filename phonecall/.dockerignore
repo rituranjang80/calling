@@ -1,0 +1,21 @@
+# Binaries / downloaded tools (will be installed in container)
+platform-tools/
+scrcpy/
+
+# Data files (persisted via volume)
+call_log.csv
+contacts.json
+
+# Temp / OS files
+*.zip
+*.tmp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.override.yml

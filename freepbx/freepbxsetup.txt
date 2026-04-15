@@ -1,0 +1,367 @@
+
+External Address = 192.168.1.6
+
+Local Networks = 192.168.1.0/24 (remove 172.17.0.0/16 and 172.20.0.0/16 to force local treatment)
+
+Direct Media = No
+
+RTP ports = 18000-18100
+
+
+docker exec -it freepbx-app bash
+
+apt update
+apt install -y sngrep
+sngrep
+
+
+Final FreePBX Configuration for Audio
+1. Settings → Asterisk SIP Settings
+Field	Value
+External Address	192.168.1.6 (your host IP) – not the public IP
+Local Networks	192.168.1.0/24 (only, remove 172.17.0.0/16 and 172.20.0.0/16 unless you need them for other containers)
+NAT Mode	Static IP (or No NAT if available)
+Remove the public IP (223.181.33.89) from External Address – that was breaking local audio.
+
+2. RTP Settings (same page, RTP tab)
+Start RTP Port: 18000
+
+End RTP Port: 18100
+
+Click Submit → Apply Config
+
+3. Extensions → Advanced tab (for each extension)
+Direct Media: No
+
+Force rport: Yes
+
+Rewrite Contact: Yes
+
+RTP Symmetric: Yes
+
+Click Submit → Apply Config
+
+4. Restart Asterisk
+bash
+docker exec -it freepbx-app asterisk -rx "core restart now"
+5. Test Call
+Re‑register Zoiper (server = 192.168.1.6)
+
+Call between two extensions
+
+Audio should work now
+
+🔍 If audio still fails
+Temporarily disable Windows Firewall (just to test). If audio works, create an inbound rule for UDP 18000-18100 on the Private profile.
+
+Let me know the result – you’re very close!
+
+where i run the sngrep
+The user is asking where to run the sngrep command to capture SIP traffic. I need to provide clear, step-by-step instructions. I'll search for guides on using sngrep with FreePBX and Docker.
+
+Found 27 web pages
+The search results are not very helpful. I need to provide a clear answer. I'll outline the steps: accessing the container, installing sngrep, running it, and capturing traffic. I'll also mention that the user can run sngrep from the host if the container's network is accessible.
+
+Read 2 pages
+GitHub - sjexpos/freepbx: FreePBX & Asterisk on Docker · GitHub
+command-not-found.com - sngrep
+The search results show a GitHub repository and a command-not-found page. I need to provide instructions on how to run sngrep inside the Docker container. I'll outline the steps: accessing the container, installing sngrep, and running it. I'll also mention that the user can run sngrep from the host if the container's network is accessible.
+
+You need to run sngrep from inside your FreePBX container to capture the SIP traffic between your PBX and your phone.
+
+Here are the steps to do this:
+
+1. Access Your Container: First, you need to get a command-line shell inside your running container. From your Windows command prompt, run:
+
+bash
+docker exec -it freepbx-app bash
+2. Install sngrep: The tiredofit/frepbx image you're using might not have sngrep pre-installed. To install it, run these two commands inside the container's shell:
+
+bash
+apt update
+apt install -y sngrep
+3. Run sngrep: Once the installation is complete, simply type:
+
+bash
+sngrep
+4. Capture SIP Traffic: With sngrep now running, place a call between your extensions. The tool will automatically display the SIP message flow, allowing you to inspect the c= lines in the SDP to verify the IP addresses being used for the audio stream (RTP).
+
+Once you've finished capturing, you can type quit to exit sngrep. If you need to exit the container's shell, just type exit.
+
+still issue audio calling  "Current Mode: Online [any]                 Dialogs: 6
+  Match Expression:                          BPF Filter:
+  Display Filter:
+      ^Idx Method     SIP From                  SIP To                    Msgs  Source                 Destination
+  [ ] 1    OPTIONS    111@172.20.0.2            111@172.20.0.1            2     172.20.0.2:5060
+  [ ] 2    INVITE     111@192.168.1.6:5060      112@192.168.1.6:5060      11    172.20.0.1:50534
+  [ ] 3    INVITE     111@172.20.0.2            112@172.20.0.1            7     172.20.0.2:5060
+  [ ] 4    REGISTER   111@192.168.1.6:5060      111@192.168.1.6:5060      4     172.20.0.1:50534
+  [ ] 5    REGISTER   112@192.168.1.6:5060      112@192.168.1.6:5060      4     172.20.0.1:57489
+  [ ] 6    OPTIONS    112@172.20.0.2            112@172.20.0.1            2     172.20.0.2:5060" "2	[2026-04-15 16:17:22] VERBOSE[3992] res_pjsip/pjsip_configuration.c: Endpoint 112 is now Unreachable	
+3	[2026-04-15 16:17:22] VERBOSE[3992] res_pjsip/pjsip_options.c: Contact 112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2 is now Unreachable. RTT: 0.000 msec	
+4	[2026-04-15 16:17:25] VERBOSE[3943] asterisk.c: Remote UNIX connection	
+5	[2026-04-15 16:17:25] VERBOSE[4590] asterisk.c: Remote UNIX connection disconnected	
+6	[2026-04-15 16:17:28] VERBOSE[4011] res_pjsip_registrar.c: Removed contact 'sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2' from AOR '112' due to expiration	
+7	[2026-04-15 16:17:28] VERBOSE[4566] res_pjsip/pjsip_options.c: Contact 112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2 has been deleted	
+8	[2026-04-15 16:18:37] VERBOSE[3992] res_pjsip_registrar.c: Added contact 'sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2' to AOR '112' with expiration of 60 seconds	
+9	[2026-04-15 16:18:37] VERBOSE[3992] res_pjsip/pjsip_configuration.c: Endpoint 112 is now Reachable	
+10	[2026-04-15 16:18:37] VERBOSE[3992] res_pjsip/pjsip_options.c: Contact 112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2 is now Reachable. RTT: 9.214 msec	
+11	[2026-04-15 16:19:20] VERBOSE[3992] pbx_variables.c: Setting global variable 'SIPDOMAIN' to '192.168.1.6'	
+12	[2026-04-15 16:19:20] VERBOSE[3992] netsock2.c: Using SIP RTP Audio TOS bits 184	
+13	[2026-04-15 16:19:20] VERBOSE[3992] netsock2.c: Using SIP RTP Audio TOS bits 184 in TCLASS field.	
+14	[2026-04-15 16:19:20] VERBOSE[3992] netsock2.c: Using SIP RTP Audio CoS mark 5	
+15	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [112@from-internal:1] Set("PJSIP/111-00000002", "__RINGTIMER=15") in new stack	
+16	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [112@from-internal:2] ExecIf("PJSIP/111-00000002", "0?Set(__CWIGNORE=)") in new stack	
+17	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [112@from-internal:3] Macro("PJSIP/111-00000002", "exten-vm,novm,112,0,0,0") in new stack	
+18	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:1] Macro("PJSIP/111-00000002", "user-callerid,") in new stack	
+19	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:1] Set("PJSIP/111-00000002", "TOUCH_MONITOR=1776269960.2") in new stack	
+20	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:2] Set("PJSIP/111-00000002", "CHANCONTEXT=") in new stack	
+21	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:3] Set("PJSIP/111-00000002", "CHANCONTEXT=") in new stack	
+22	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:4] Set("PJSIP/111-00000002", "CHANEXTENCONTEXT=111-00000002") in new stack	
+23	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:5] Set("PJSIP/111-00000002", "CHANEXTEN=111-00000002") in new stack	
+24	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:6] Set("PJSIP/111-00000002", "CALLERID(number)=111") in new stack	
+25	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:7] Set("PJSIP/111-00000002", "AMPUSER=111") in new stack	
+26	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:8] Set("PJSIP/111-00000002", "HOTDESCKCHAN=111-00000002") in new stack	
+27	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:9] Set("PJSIP/111-00000002", "HOTDESKEXTEN=111") in new stack	
+28	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:10] Set("PJSIP/111-00000002", "HOTDESKCALL=0") in new stack	
+29	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:11] ExecIf("PJSIP/111-00000002", "0?Set(HOTDESKCALL=1)") in new stack	
+30	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:12] ExecIf("PJSIP/111-00000002", "0?Set(CALLERID(name)=)") in new stack	
+31	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:13] GotoIf("PJSIP/111-00000002", "0?report") in new stack	
+32	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:14] ExecIf("PJSIP/111-00000002", "1?Set(REALCALLERIDNUM=111)") in new stack	
+33	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:15] Set("PJSIP/111-00000002", "AMPUSER=111") in new stack	
+34	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:16] GotoIf("PJSIP/111-00000002", "0?limit") in new stack	
+35	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:17] Set("PJSIP/111-00000002", "AMPUSERCIDNAME=111") in new stack	
+36	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:18] ExecIf("PJSIP/111-00000002", "0?Set(__CIDMASQUERADING=TRUE)") in new stack	
+37	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:19] GotoIf("PJSIP/111-00000002", "0?report") in new stack	
+38	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:20] Set("PJSIP/111-00000002", "AMPUSERCID=111") in new stack	
+39	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:21] Set("PJSIP/111-00000002", "__DIAL_OPTIONS=HhTtr") in new stack	
+40	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:22] Set("PJSIP/111-00000002", "CALLERID(all)="111" <111>") in new stack	
+41	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:23] ExecIf("PJSIP/111-00000002", "0?Set(CUSDIAL=112)") in new stack	
+42	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:24] ExecIf("PJSIP/111-00000002", "0?Set(CALLERID(all)="111" <111>)") in new stack	
+43	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:25] GotoIf("PJSIP/111-00000002", "0?limit") in new stack	
+44	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:26] ExecIf("PJSIP/111-00000002", "0?Set(GROUP(concurrency_limit)=111)") in new stack	
+45	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:27] ExecIf("PJSIP/111-00000002", "0?Set(CHANNEL(language)=)") in new stack	
+46	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:28] NoOp("PJSIP/111-00000002", "Macro Depth is 2") in new stack	
+47	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:29] GotoIf("PJSIP/111-00000002", "1?report2:macroerror") in new stack	
+48	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (macro-user-callerid,s,30)	
+49	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:30] GotoIf("PJSIP/111-00000002", "0?continue") in new stack	
+50	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:31] Set("PJSIP/111-00000002", "__TTL=64") in new stack	
+51	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:32] GotoIf("PJSIP/111-00000002", "1?continue") in new stack	
+52	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (macro-user-callerid,s,48)	
+53	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:48] Set("PJSIP/111-00000002", "CALLERID(number)=111") in new stack	
+54	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:49] Set("PJSIP/111-00000002", "CALLERID(name)=111") in new stack	
+55	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:50] GotoIf("PJSIP/111-00000002", "0?cnum") in new stack	
+56	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:51] Set("PJSIP/111-00000002", "CDR(cnam)=111") in new stack	
+57	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:52] Set("PJSIP/111-00000002", "CDR(cnum)=111") in new stack	
+58	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-user-callerid:53] Set("PJSIP/111-00000002", "CHANNEL(language)=en") in new stack	
+59	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:2] Set("PJSIP/111-00000002", "RingGroupMethod=none") in new stack	
+60	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:3] Set("PJSIP/111-00000002", "__EXTTOCALL=112") in new stack	
+61	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:4] Set("PJSIP/111-00000002", "__PICKUPMARK=112") in new stack	
+62	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:5] Set("PJSIP/111-00000002", "RT=") in new stack	
+63	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:6] Gosub("PJSIP/111-00000002", "sub-record-check,s,1(exten,112,dontcare)") in new stack	
+64	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:1] GotoIf("PJSIP/111-00000002", "0?initialized") in new stack	
+65	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:2] Set("PJSIP/111-00000002", "__REC_STATUS=INITIALIZED") in new stack	
+66	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:3] Set("PJSIP/111-00000002", "NOW=1776269960") in new stack	
+67	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:4] Set("PJSIP/111-00000002", "__DAY=15") in new stack	
+68	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:5] Set("PJSIP/111-00000002", "__MONTH=04") in new stack	
+69	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:6] Set("PJSIP/111-00000002", "__YEAR=2026") in new stack	
+70	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:7] Set("PJSIP/111-00000002", "__TIMESTR=20260415-161920") in new stack	
+71	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:8] Set("PJSIP/111-00000002", "__FROMEXTEN=111") in new stack	
+72	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:9] Set("PJSIP/111-00000002", "__MON_FMT=wav") in new stack	
+73	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:10] NoOp("PJSIP/111-00000002", "Recordings initialized") in new stack	
+74	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:11] ExecIf("PJSIP/111-00000002", "0?Set(ARG3=dontcare)") in new stack	
+75	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:12] Set("PJSIP/111-00000002", "REC_POLICY_MODE_SAVE=") in new stack	
+76	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:13] ExecIf("PJSIP/111-00000002", "0?Set(REC_STATUS=NO)") in new stack	
+77	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:14] GotoIf("PJSIP/111-00000002", "5?checkaction") in new stack	
+78	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (sub-record-check,s,17)	
+79	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-record-check:17] GotoIf("PJSIP/111-00000002", "1?sub-record-check,exten,1") in new stack	
+80	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (sub-record-check,exten,1)	
+81	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:1] NoOp("PJSIP/111-00000002", "Exten Recording Check between 111 and 112") in new stack	
+82	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:2] Set("PJSIP/111-00000002", "CALLTYPE=internal") in new stack	
+83	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:3] ExecIf("PJSIP/111-00000002", "0?Set(CALLTYPE=)") in new stack	
+84	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:4] Set("PJSIP/111-00000002", "CALLEE=dontcare") in new stack	
+85	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:5] ExecIf("PJSIP/111-00000002", "0?Set(CALLEE=dontcare)") in new stack	
+86	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:6] GotoIf("PJSIP/111-00000002", "0?callee") in new stack	
+87	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:7] GotoIf("PJSIP/111-00000002", "1?caller") in new stack	
+88	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (sub-record-check,exten,13)	
+89	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:13] Set("PJSIP/111-00000002", "RECMODE=dontcare") in new stack	
+90	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:14] Set("PJSIP/111-00000002", "CALLERRECMODE=dontcare") in new stack	
+91	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:15] Set("PJSIP/111-00000002", "CALEERECMODE=dontcare") in new stack	
+92	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:16] GotoIf("PJSIP/111-00000002", "0?processnormal") in new stack	
+93	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:17] ExecIf("PJSIP/111-00000002", "0?Set(RECMODE=dontcare)") in new stack	
+94	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:18] ExecIf("PJSIP/111-00000002", "0?Set(RECMODE=dontcare)") in new stack	
+95	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:19] ExecIf("PJSIP/111-00000002", "0?Set(RECMODE=dontcare)") in new stack	
+96	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:20] ExecIf("PJSIP/111-00000002", "0?Set(RECMODE=dontcare)") in new stack	
+97	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:21] ExecIf("PJSIP/111-00000002", "0?Set(RECMODE=dontcare)") in new stack	
+98	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:22] ExecIf("PJSIP/111-00000002", "1?Set(RECMODE=dontcare)") in new stack	
+99	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:23] Gosub("PJSIP/111-00000002", "recordcheck,1(dontcare,internal,112)") in new stack	
+100	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [recordcheck@sub-record-check:1] NoOp("PJSIP/111-00000002", "Starting recording check against dontcare") in new stack	
+101	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [recordcheck@sub-record-check:2] Goto("PJSIP/111-00000002", "dontcare") in new stack	
+102	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (sub-record-check,recordcheck,3)	
+103	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [recordcheck@sub-record-check:3] Return("PJSIP/111-00000002", "") in new stack	
+104	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [exten@sub-record-check:24] Return("PJSIP/111-00000002", "") in new stack	
+105	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:7] GotoIf("PJSIP/111-00000002", "1?macrodial") in new stack	
+106	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (macro-exten-vm,s,13)	
+107	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:13] GosubIf("PJSIP/111-00000002", "0?clrheader,1()") in new stack	
+108	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-exten-vm:14] Macro("PJSIP/111-00000002", "dial-one,,HhTtr,112") in new stack	
+109	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:1] Set("PJSIP/111-00000002", "DEXTEN=112") in new stack	
+110	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:2] ExecIf("PJSIP/111-00000002", "0?Set(__EXTTOCALL=112)") in new stack	
+111	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:3] Set("PJSIP/111-00000002", "DIALSTATUS_CW=") in new stack	
+112	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:4] GosubIf("PJSIP/111-00000002", "0?screen,1()") in new stack	
+113	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:5] GosubIf("PJSIP/111-00000002", "0?cf,1()") in new stack	
+114	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:6] GotoIf("PJSIP/111-00000002", "1?skip1") in new stack	
+115	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (macro-dial-one,s,9)	
+116	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:9] GotoIf("PJSIP/111-00000002", "0?nodial") in new stack	
+117	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:10] GotoIf("PJSIP/111-00000002", "0?continue") in new stack	
+118	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:11] Set("PJSIP/111-00000002", "EXTHASCW=ENABLED") in new stack	
+119	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:12] GotoIf("PJSIP/111-00000002", "0?next1:cwinusebusy") in new stack	
+120	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (macro-dial-one,s,24)	
+121	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:24] GotoIf("PJSIP/111-00000002", "0?next3:continue") in new stack	
+122	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (macro-dial-one,s,26)	
+123	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:26] GotoIf("PJSIP/111-00000002", "0?nodial") in new stack	
+124	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:27] GosubIf("PJSIP/111-00000002", "1?dstring,1():dlocal,1()") in new stack	
+125	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:1] Set("PJSIP/111-00000002", "DSTRING=") in new stack	
+126	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:2] Set("PJSIP/111-00000002", "DEVICES=112") in new stack	
+127	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:3] ExecIf("PJSIP/111-00000002", "0?Return()") in new stack	
+128	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:4] ExecIf("PJSIP/111-00000002", "0?Set(DEVICES=12)") in new stack	
+129	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:5] Set("PJSIP/111-00000002", "LOOPCNT=1") in new stack	
+130	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:6] Set("PJSIP/111-00000002", "ITER=1") in new stack	
+131	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:7] Set("PJSIP/111-00000002", "THISDIAL=PJSIP/112") in new stack	
+132	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:8] GotoIf("PJSIP/111-00000002", "0?docheck") in new stack	
+133	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:9] NoOp("PJSIP/111-00000002", "Debug: Found PJSIP Destination PJSIP/112") in new stack	
+134	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:10] GotoIf("PJSIP/111-00000002", "0?doset") in new stack	
+135	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:11] NoOp("PJSIP/111-00000002", "Debug: Updating PJSIP Destination with PJSIP_DIAL_CONTACTS") in new stack	
+136	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:12] Set("PJSIP/111-00000002", "THISDIAL=PJSIP/112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2") in new stack	
+137	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:13] ExecIf("PJSIP/111-00000002", "0?Set(DIALSTATUS=CHANUNAVAIL)") in new stack	
+138	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:14] GotoIf("PJSIP/111-00000002", "0?skipset") in new stack	
+139	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:15] Set("PJSIP/111-00000002", "DSTRING=PJSIP/112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2&") in new stack	
+140	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:16] Set("PJSIP/111-00000002", "ITER=2") in new stack	
+141	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:17] GotoIf("PJSIP/111-00000002", "0?begin") in new stack	
+142	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:18] ExecIf("PJSIP/111-00000002", "0?Return()") in new stack	
+143	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:19] Set("PJSIP/111-00000002", "DSTRING=PJSIP/112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2") in new stack	
+144	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [dstring@macro-dial-one:20] Return("PJSIP/111-00000002", "") in new stack	
+145	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:28] GotoIf("PJSIP/111-00000002", "0?nodial") in new stack	
+146	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:29] GotoIf("PJSIP/111-00000002", "0?skiptrace") in new stack	
+147	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:30] GosubIf("PJSIP/111-00000002", "1?ctset,1():ctclear,1()") in new stack	
+148	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [ctset@macro-dial-one:1] Set("PJSIP/111-00000002", "DB(CALLTRACE/112)=111") in new stack	
+149	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [ctset@macro-dial-one:2] Return("PJSIP/111-00000002", "") in new stack	
+150	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:31] Set("PJSIP/111-00000002", "D_OPTIONS=HhTtr") in new stack	
+151	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:32] GosubIf("PJSIP/111-00000002", "0?func-set-sipheader,s,1(Alert-Info,)") in new stack	
+152	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:33] NoOp("PJSIP/111-00000002", "Blind Transfer: , Attended Transfer: , User: 111, Alert Info: ") in new stack	
+153	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:34] ExecIf("PJSIP/111-00000002", "1?Set(ALERT_INFO=)") in new stack	
+154	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:35] ExecIf("PJSIP/111-00000002", "0?Set(ALERT_INFO=)") in new stack	
+155	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:36] ExecIf("PJSIP/111-00000002", "0?Set(ALERT_INFO=)") in new stack	
+156	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:37] ExecIf("PJSIP/111-00000002", "0?Set(ALERT_INFO=Normal;volume=)") in new stack	
+157	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:38] ExecIf("PJSIP/111-00000002", "0?Set(ALERT_INFO=Normal;volume=)") in new stack	
+158	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:39] GosubIf("PJSIP/111-00000002", "0?func-set-sipheader,s,1(Alert-Info,)") in new stack	
+159	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:40] ExecIf("PJSIP/111-00000002", "0?Set(CHANNEL(musicclass)=)") in new stack	
+160	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:41] GosubIf("PJSIP/111-00000002", "0?qwait,1()") in new stack	
+161	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:42] Set("PJSIP/111-00000002", "__CWIGNORE=") in new stack	
+162	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:43] Set("PJSIP/111-00000002", "__KEEPCID=TRUE") in new stack	
+163	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:44] GotoIf("PJSIP/111-00000002", "0?usegoto,1") in new stack	
+164	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:45] GotoIf("PJSIP/111-00000002", "0?godial") in new stack	
+165	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:46] Gosub("PJSIP/111-00000002", "sub-presencestate-display,s,1(112)") in new stack	
+166	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@sub-presencestate-display:1] Goto("PJSIP/111-00000002", "state-available,1") in new stack	
+167	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (sub-presencestate-display,state-available,1)	
+168	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [state-available@sub-presencestate-display:1] Set("PJSIP/111-00000002", "PRESENCESTATE_DISPLAY=(Available)") in new stack	
+169	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [state-available@sub-presencestate-display:2] Return("PJSIP/111-00000002", "") in new stack	
+170	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:47] Set("PJSIP/111-00000002", "CONNECTEDLINE(name,i)=112 (Available)") in new stack	
+171	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:48] Set("PJSIP/111-00000002", "CONNECTEDLINE(num)=112") in new stack	
+172	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:49] Set("PJSIP/111-00000002", "D_OPTIONS=HhTtr") in new stack	
+173	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:50] Macro("PJSIP/111-00000002", "dialout-one-predial-hook,") in new stack	
+174	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dialout-one-predial-hook:1] MacroExit("PJSIP/111-00000002", "") in new stack	
+175	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:51] ExecIf("PJSIP/111-00000002", "0?Set(D_OPTIONS=HhtrI)") in new stack	
+176	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:52] ExecIf("PJSIP/111-00000002", "0?Set(CWRING=r(callwaiting)):Set(CWRING=)") in new stack	
+177	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:53] NoOp("PJSIP/111-00000002", "") in new stack	
+178	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:54] ExecIf("PJSIP/111-00000002", "0?Set(D_OPTIONS=Hhtr)") in new stack	
+179	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-dial-one:55] Dial("PJSIP/111-00000002", "PJSIP/112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2,,HhTtrb(func-apply-sipheaders^s^1)") in new stack	
+180	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] app_stack.c: PJSIP/112-00000003 Internal Gosub(func-apply-sipheaders,s,1) start	
+181	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@func-apply-sipheaders:1] NoOp("PJSIP/112-00000003", "Applying SIP Headers to channel PJSIP/112-00000003") in new stack	
+182	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@func-apply-sipheaders:2] Set("PJSIP/112-00000003", "TECH=PJSIP") in new stack	
+183	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@func-apply-sipheaders:3] Set("PJSIP/112-00000003", "SIPHEADERKEYS=") in new stack	
+184	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@func-apply-sipheaders:4] While("PJSIP/112-00000003", "0") in new stack	
+185	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] app_while.c: Jumping to priority 12	
+186	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] pbx.c: Executing [s@func-apply-sipheaders:13] Return("PJSIP/112-00000003", "") in new stack	
+187	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] app_stack.c: Spawn extension (from-internal, 112, 1) exited non-zero on 'PJSIP/112-00000003'	
+188	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] app_stack.c: PJSIP/112-00000003 Internal Gosub(func-apply-sipheaders,s,1) complete GOSUB_RETVAL=	
+189	[2026-04-15 16:19:20] VERBOSE[4831][C-00000002] app_dial.c: Called PJSIP/112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2	
+190	[2026-04-15 16:19:20] VERBOSE[3992] netsock2.c: Using SIP RTP Audio TOS bits 184	
+191	[2026-04-15 16:19:20] VERBOSE[3992] netsock2.c: Using SIP RTP Audio TOS bits 184 in TCLASS field.	
+192	[2026-04-15 16:19:20] VERBOSE[3992] netsock2.c: Using SIP RTP Audio CoS mark 5	
+193	[2026-04-15 16:19:22] VERBOSE[4831][C-00000002] app_dial.c: PJSIP/112-00000003 is ringing	
+194	[2026-04-15 16:19:22] VERBOSE[4831][C-00000002] app_dial.c: PJSIP/112-00000003 is ringing	
+195	[2026-04-15 16:19:24] VERBOSE[4831][C-00000002] app_dial.c: PJSIP/112-00000003 answered PJSIP/111-00000002	
+196	[2026-04-15 16:19:24] VERBOSE[4841][C-00000002] bridge_channel.c: Channel PJSIP/112-00000003 joined 'simple_bridge' basic-bridge <c8712ab4-9eed-4d19-8c99-8238476c3498>	
+197	[2026-04-15 16:19:24] VERBOSE[4831][C-00000002] bridge_channel.c: Channel PJSIP/111-00000002 joined 'simple_bridge' basic-bridge <c8712ab4-9eed-4d19-8c99-8238476c3498>	
+198	[2026-04-15 16:19:30] VERBOSE[4841][C-00000002] bridge_channel.c: Channel PJSIP/112-00000003 left 'simple_bridge' basic-bridge <c8712ab4-9eed-4d19-8c99-8238476c3498>	
+199	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] bridge_channel.c: Channel PJSIP/111-00000002 left 'simple_bridge' basic-bridge <c8712ab4-9eed-4d19-8c99-8238476c3498>	
+200	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] app_macro.c: Spawn extension (macro-dial-one, s, 55) exited non-zero on 'PJSIP/111-00000002' in macro 'dial-one'	
+201	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] app_macro.c: Spawn extension (macro-exten-vm, s, 14) exited non-zero on 'PJSIP/111-00000002' in macro 'exten-vm'	
+202	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] pbx.c: Spawn extension (from-internal, 112, 3) exited non-zero on 'PJSIP/111-00000002'	
+203	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] pbx.c: Executing [h@from-internal:1] Macro("PJSIP/111-00000002", "hangupcall") in new stack	
+204	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-hangupcall:1] GotoIf("PJSIP/111-00000002", "1?theend") in new stack	
+205	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] pbx_builtins.c: Goto (macro-hangupcall,s,3)	
+206	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-hangupcall:3] ExecIf("PJSIP/111-00000002", "0?Set(CDR(recordingfile)=)") in new stack	
+207	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] pbx.c: Executing [s@macro-hangupcall:4] Hangup("PJSIP/111-00000002", "") in new stack	
+208	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] app_macro.c: Spawn extension (macro-hangupcall, s, 4) exited non-zero on 'PJSIP/111-00000002' in macro 'hangupcall'	
+209	[2026-04-15 16:19:30] VERBOSE[4831][C-00000002] pbx.c: Spawn extension (from-internal, h, 1) exited non-zero on 'PJSIP/111-00000002'	
+210	[2026-04-15 16:20:40] VERBOSE[3992] res_pjsip/pjsip_configuration.c: Endpoint 112 is now Unreachable	
+211	[2026-04-15 16:20:40] VERBOSE[3992] res_pjsip/pjsip_options.c: Contact 112/sip:112@172.20.0.1:57489;rinstance=330ff56fb68799d2 is now Unreachable. RTT: 0.000 msec	
+"
+We can see from the sngrep output and logs that the client (Zoiper) is still using IP address 172.20.0.1. The ipconfig output you showed earlier no longer lists any virtual adapters, but the client is still getting that IP. This suggests that either Zoiper is still binding to a hidden adapter, or there is a residual network route/interface. Let's re-check: After disabling virtual adapters, did you restart Zoiper? Also, we need to verify Zoiper's network binding settings. Since the problem persists, we need to explicitly configure Zoiper to use 192.168.1.6. If Zoiper doesn't have that option, consider using a different softphone like MicroSIP which allows binding. Alternatively, we can try to add a static route or force the container to use host network mode. But the simplest is to change the SIP client. Provide steps to configure Zoiper binding or suggest alternative.
+
+The sngrep output and logs confirm that your Zoiper client is still using the IP address 172.20.0.1 for SIP registration and media, despite your ipconfig now showing only your Wi‑Fi adapter (192.168.1.6). This means that Zoiper is still binding to a hidden or persistent virtual adapter (possibly from Docker, WSL, or Hyper‑V) that is not visible in the basic ipconfig output.
+
+✅ Immediate Fix: Force Zoiper to Use the Correct IP
+1. Check Zoiper’s Network Settings
+Open Zoiper → Preferences (or Settings) → Advanced → Network.
+
+Look for “Bind to local IP address”, “Network interface”, or “Use specific local IP”.
+
+If available, select 192.168.1.6 (or the adapter named “Wi‑Fi”).
+
+Apply and restart Zoiper.
+
+If Zoiper does not have this option (common in the free version), you need to switch to a different softphone that allows binding.
+
+2. Recommended Alternative: MicroSIP (Free, Lightweight, Supports Binding)
+Download MicroSIP (portable version). In MicroSIP:
+
+Go to Menu → Account Settings.
+
+Set Server to 192.168.1.6.
+
+Important: Go to Menu → Advanced and set “Bind to local interface” to your Wi‑Fi IP (192.168.1.6) or select the adapter name.
+
+Save and register.
+
+MicroSIP will then use only your physical Wi‑Fi adapter, eliminating the 172.20.0.1 issue.
+
+3. If You Prefer to Keep Zoiper – Remove Persistent Virtual Adapters
+Even though ipconfig no longer shows them, some virtual adapters remain hidden. Run these commands in Command Prompt as Administrator:
+
+cmd
+# Show all network interfaces (including hidden)
+netsh interface show interface
+
+# Disable any interface with "vEthernet" or "Hyper-V" in the name
+netsh interface set interface "vEthernet (Default Switch)" disable
+netsh interface set interface "vEthernet (WSL)" disable
+netsh interface set interface "vEthernet (nat)" disable
+Then restart your PC and Zoiper.
+
+4. Final FreePBX Check (Already Done)
+Your FreePBX settings are correct:
+
+External Address = 192.168.1.6
+
+Local Networks = 192.168.1.0/24 (remove 172.17.0.0/16 and 172.20.0.0/16 to force local treatment)
+
+Direct Media = No
+
+RTP ports = 18000-18100
+
+📌 Next Step
+Switch to MicroSIP – it takes 2 minutes to set up and will immediately solve the problem. Let me know if you need help configuring MicroSIP.
+
+

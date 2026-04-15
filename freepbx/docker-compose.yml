@@ -1,0 +1,30 @@
+services:
+  freepbx:
+    container_name: freepbx-app
+    image: tiredofit/freepbx
+    ports:
+      - "80:80"
+      - "443:443"
+      - "5060:5060/udp"
+      - "5060:5060/tcp"
+      - "5160:5160/udp"
+      - "5160:5160/tcp"
+      - "8088:8088"
+      - "8089:8089"
+      # Mapping the RTP range defined in environment variables
+      - "18000-18100:18000-18100/udp"
+    privileged: true
+    volumes:
+      - ./data:/data
+      - ./logs:/var/log
+      - ./asterisk/etc:/etc/asterisk
+      - ./asterisk/var:/var/lib/asterisk
+    environment:
+      - DB_EMBEDDED=TRUE
+      - DB_NAME=asterisk
+      - DB_USER=freepbxuser
+      - DB_PASS=freepbxpassword
+      - RTP_START=18000
+      - RTP_FINISH=18100
+      - MARIADB_ROOT_PASSWORD=rootpass
+    restart: always
